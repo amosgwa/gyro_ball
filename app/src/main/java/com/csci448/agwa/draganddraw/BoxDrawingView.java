@@ -45,6 +45,11 @@ public class BoxDrawingView extends View {
     protected void onDraw(Canvas canvas) {
         // Fill the background
         canvas.drawPaint(mBackgroundPaint);
+
+        // Draw a ball
+        canvas.drawCircle();
+
+
         for (Box box : mBoxen) {
             Log.i(TAG, "Drawing " + String.valueOf(box.getId()));
             float left = Math.min(box.getOrigin().x, box.getCurrent().x);
@@ -55,36 +60,36 @@ public class BoxDrawingView extends View {
         }
     }
 
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        PointF current = new PointF(event.getX(), event.getY());
-        String action = "";
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                action = "ACTION_DOWN";
-                // Reset drawing state
-                count += 1;
-                mCurrentBox = new Box(current, count);
-                mBoxen.add(mCurrentBox);
-                break;
-            case MotionEvent.ACTION_MOVE:
-                action = "ACTION_MOVE";
-                if (mCurrentBox != null) {
-                    mCurrentBox.setCurrent(current);
-                    invalidate();
-                }
-                break;
-            case MotionEvent.ACTION_UP:
-                action = "ACTION_UP";
-                mCurrentBox = null;
-                break;
-            case MotionEvent.ACTION_CANCEL:
-                action = "ACTION_CANCEL";
-                mCurrentBox = null;
-                break;
-        }
-        Log.i(TAG, action + " at x=" + current.x +
-                ", y=" + current.y);
-        return true;
-    }
+//    @Override
+//    public boolean onTouchEvent(MotionEvent event) {
+//        PointF current = new PointF(event.getX(), event.getY());
+//        String action = "";
+//        switch (event.getAction()) {
+//            case MotionEvent.ACTION_DOWN:
+//                action = "ACTION_DOWN";
+//                // Reset drawing state
+//                count += 1;
+//                mCurrentBox = new Box(current, count);
+//                mBoxen.add(mCurrentBox);
+//                break;
+//            case MotionEvent.ACTION_MOVE:
+//                action = "ACTION_MOVE";
+//                if (mCurrentBox != null) {
+//                    mCurrentBox.setCurrent(current);
+//                    invalidate();
+//                }
+//                break;
+//            case MotionEvent.ACTION_UP:
+//                action = "ACTION_UP";
+//                mCurrentBox = null;
+//                break;
+//            case MotionEvent.ACTION_CANCEL:
+//                action = "ACTION_CANCEL";
+//                mCurrentBox = null;
+//                break;
+//        }
+//        Log.i(TAG, action + " at x=" + current.x +
+//                ", y=" + current.y);
+//        return true;
+//    }
 }
