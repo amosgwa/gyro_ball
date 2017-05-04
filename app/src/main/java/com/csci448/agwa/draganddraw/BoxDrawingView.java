@@ -1,6 +1,7 @@
 package com.csci448.agwa.draganddraw;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Point;
@@ -34,11 +35,14 @@ public class BoxDrawingView extends View implements SensorEventListener{
 
     private float ball_radius = 50.0f;
 
-    private Point maxSize;
+    private Point maxSize = new Point();
 
     public float xPosition, mSensorX,xVelocity = 0.0f;
     public float yPosition, mSensorY,yVelocity = 0.0f;
     public float frameTime = 0.666f;
+
+    public long mLastT;
+    public float mLastLux;
 
     // Used when creating the view in code
     public BoxDrawingView(Context context) {
@@ -50,10 +54,16 @@ public class BoxDrawingView extends View implements SensorEventListener{
         super(context, attrs);
 
         Sensor mAccelerometer = ServiceManager.mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        Sensor mLight = ServiceManager.mSensorManager.getDefaultSensor(Sensor.TYPE_LIGHT);
+
         ServiceManager.mSensorManager.registerListener(this, mAccelerometer, ServiceManager.mSensorManager.SENSOR_DELAY_GAME);
+        ServiceManager.mSensorManager.registerListener(this, mLight, ServiceManager.mSensorManager.SENSOR_DELAY_GAME);
 
         // Get the maximum size.
         ServiceManager.mDisplay.getSize(maxSize);
+
+        mLastT = System.currentTimeMillis();
+        mLastLux = 0;
 
         // Create holes
         Paint hole_paint = new Paint();
@@ -73,6 +83,10 @@ public class BoxDrawingView extends View implements SensorEventListener{
         mBall = new Ball(point, ball_paint);
     }
 
+    /**
+     * We are constantly rerendering the view with the new updated position and color of the ball.
+     * @param canvas
+     */
     @Override
     protected void onDraw(Canvas canvas) {
         // Fill the background
@@ -88,60 +102,107 @@ public class BoxDrawingView extends View implements SensorEventListener{
         invalidate();
     }
 
+    /**
+     * Responsible for detecting the accelerometer and light changes.
+     * The ball should stay in the boundary of the view.
+     * The Lux is set to 0 - 100. Depending on the range, it changes very distinctive colors.
+     * @param event
+     */
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
-            return;
 
-        switch (ServiceManager.mDisplay.getRotation()) {
-            case Surface.ROTATION_0:
-                mSensorX = event.values[0];
-                mSensorY = event.values[1];
-                break;
-            case Surface.ROTATION_90:
-                mSensorX = -event.values[1];
-                mSensorY = event.values[0];
-                break;
-            case Surface.ROTATION_180:
-                mSensorX = -event.values[0];
-                mSensorY = -event.values[1];
-                break;
-            case Surface.ROTATION_270:
-                mSensorX = event.values[1];
-                mSensorY = -event.values[0];
-                break;
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+            switch (ServiceManager.mDisplay.getRotation()) {
+                case Surface.ROTATION_0:
+                    mSensorX = event.values[0];
+                    mSensorY = event.values[1];
+                    break;
+                case Surface.ROTATION_90:
+                    mSensorX = -event.values[1];
+                    mSensorY = event.values[0];
+                    break;
+                case Surface.ROTATION_180:
+                    mSensorX = -event.values[0];
+                    mSensorY = -event.values[1];
+                    break;
+                case Surface.ROTATION_270:
+                    mSensorX = event.values[1];
+                    mSensorY = -event.values[0];
+                    break;
+            }
+            updateBall();
+
+        } else if (event.sensor.getType() == Sensor.TYPE_LIGHT){
+            float currentLux = event.values[0];
+
+            Paint paint = new Paint();
+            paint.setStyle(Paint.Style.FILL);
+
+            if(currentLux > 100) {// Max Lux is 100.
+                currentLux = 100;
+            }
+
+            if( 0 <= currentLux && currentLux < 25 ) {
+                paint.setARGB(255, 60, 63, 65);
+            } else if ( 25 <= currentLux && currentLux < 50 ) {
+                paint.setARGB(255, 157, 191, 159);
+            } else if ( 50 <= currentLux && currentLux < 75 ) {
+                paint.setARGB(255, 233, 109, 31);
+            } else {
+                paint.setARGB(255, 197, 63, 38);
+            }
+
+            mBall.setColor(paint);
+
+            //Set sensor values as acceleration
+            updateBall();
         }
-       //Set sensor values as acceleration
-        updateBall();
+
     }
 
+    /**
+     * This is basically the physics of the ball.
+     * It records the previous velocity and time. So then, it can calculate the new distance
+     * based on the acceleration from the accelerometer.
+     */
     private void updateBall() {
-        //Calculate new speed
-        xVelocity += (mSensorX * frameTime);
-        yVelocity += (mSensorY * frameTime);
 
-        //Calc distance travelled in that time
-        float xS = (xVelocity/2)*frameTime;
-        float yS = (yVelocity/2)*frameTime;
+        final float sx = mSensorX;
+        final float sy = mSensorY;
 
-        //Add to position negative due to sensor
-        //readings being opposite to what we want!
-        xPosition -= xS;
-        yPosition -= yS;
+        final float ax = -sx/5;
+        final float ay = sy/5;
+        final long now_t = System.currentTimeMillis();
+        final float dT = (float) (now_t - mLastT) / 15.f;
+
+        xPosition += xVelocity * dT + ax * dT * dT / 2;
+        yPosition += yVelocity * dT + ay * dT * dT / 2;
+
+        xVelocity += ax * dT;
+        yVelocity += ay * dT;
+
+        mLastT = now_t;
 
         if (xPosition > maxSize.x) {
             xPosition = maxSize.x;
+            xVelocity = 0;
         } else if (xPosition < 0) {
             xPosition = 0;
+            xVelocity = 0;
         }
-        if (yPosition > maxSize.y) {
-            yPosition = maxSize.y;
+
+        if (yPosition > maxSize.y-250) {
+            yPosition = maxSize.y-250;
+            yVelocity = 0;
         } else if (yPosition < 0) {
             yPosition = 0;
+            yVelocity = 0;
         }
 
         PointF new_pos = new PointF(xPosition, yPosition);
         mBall.setPos(new_pos);
+
+        checkWin();
     }
 
     @Override
@@ -149,6 +210,9 @@ public class BoxDrawingView extends View implements SensorEventListener{
 
     }
 
+    /**
+     * Make sure that the sensors are unregistered after the game.
+     */
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
@@ -156,36 +220,25 @@ public class BoxDrawingView extends View implements SensorEventListener{
         ServiceManager.mSensorManager.unregisterListener(this);
     }
 
-    //    @Override
-//    public boolean onTouchEvent(MotionEvent event) {
-//        PointF current = new PointF(event.getX(), event.getY());
-//        String action = "";
-//        switch (event.getAction()) {
-//            case MotionEvent.ACTION_DOWN:
-//                action = "ACTION_DOWN";
-//                // Reset drawing state
-//                count += 1;
-//                mCurrentBox = new Box(current, count);
-//                mBoxen.add(mCurrentBox);
-//                break;
-//            case MotionEvent.ACTION_MOVE:
-//                action = "ACTION_MOVE";
-//                if (mCurrentBox != null) {
-//                    mCurrentBox.setCurrent(current);
-//                    invalidate();
-//                }
-//                break;
-//            case MotionEvent.ACTION_UP:
-//                action = "ACTION_UP";
-//                mCurrentBox = null;
-//                break;
-//            case MotionEvent.ACTION_CANCEL:
-//                action = "ACTION_CANCEL";
-//                mCurrentBox = null;
-//                break;
-//        }
-//        Log.i(TAG, action + " at x=" + current.x +
-//                ", y=" + current.y);
-//        return true;
-//    }
+    /**
+     * Make sure that the game checks if the ball is in the hole.
+     * This should be ran when the sensor change is detected. If
+     * this is checked in the onDraw it will look like it's crashed.
+     * Actually, the view stops rendering and it loses its intent.
+     */
+    public void checkWin(){
+        float hole_x = red_hole.getPos().x;
+        float hole_y = red_hole.getPos().y;
+        float ball_x = mBall.getPos().x;
+        float ball_y = mBall.getPos().y;
+
+        double distance = Math.pow(hole_x - ball_x, 2) + Math.pow(ball_y - hole_y, 2);
+        distance = Math.pow(distance, 0.5);
+
+        if(distance < ball_radius) {
+            Intent intent = new Intent(this.getContext(), gameover.class);
+            this.getContext().startActivity(intent);
+            ServiceManager.mSensorManager.unregisterListener(this);
+        }
+    }
 }
