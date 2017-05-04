@@ -8,30 +8,20 @@ import android.graphics.PointF;
  */
 
  public class Ball {
-    private PointF x;
-    private PointF y;
+    private PointF pos;
     private Paint color;
 
-    public Ball(PointF x, PointF y) {
-        this.x = x;
-        this.y = y;
-        color = new Paint();
+    public Ball(PointF pos, Paint color) {
+        this.pos = pos;
+        this.color = color;
     }
 
-    public PointF getX() {
-        return x;
+    public PointF getPos() {
+        return pos;
     }
 
-    public void setX(PointF x) {
-        this.x = x;
-    }
-
-    public PointF getY() {
-        return y;
-    }
-
-    public void setY(PointF y) {
-        this.y = y;
+    public void setPos(PointF pos) {
+        this.pos = pos;
     }
 
     public Paint getColor() {
